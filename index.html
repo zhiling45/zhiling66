@@ -1,0 +1,180 @@
+<!-- index.html -->
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>每日信息记录 · Daily Journal</title>
+  <meta name="description" content="纯前端每日信息记录应用（本地存储、导入导出、统计），可直接部署到 GitHub Pages。" />
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar" role="banner">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">🗒️</span>
+      <h1>每日信息记录</h1>
+    </div>
+
+    <nav class="toolbar" aria-label="主工具栏">
+      <button id="btnNew" class="btn primary" title="新建 (N)">新建</button>
+
+      <div class="field search">
+        <label for="q" class="sr-only">搜索</label>
+        <input id="q" type="search" placeholder="搜索标题/内容/标签（/ 聚焦）" autocomplete="off" />
+      </div>
+
+      <div class="field">
+        <label for="filterDate">日期</label>
+        <input id="filterDate" type="date" />
+      </div>
+
+      <div class="field">
+        <label for="filterMood">心情</label>
+        <select id="filterMood">
+          <option value="">全部</option>
+          <option value="开心">开心</option>
+          <option value="一般">一般</option>
+          <option value="低落">低落</option>
+          <option value="紧张">紧张</option>
+          <option value="疲惫">疲惫</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <button id="btnTagFilter" class="btn" aria-haspopup="true" aria-expanded="false" aria-controls="tagMenu">标签筛选</button>
+        <div id="tagMenu" class="menu" role="menu" aria-label="标签筛选">
+          <div class="menu-head">
+            <span>选择标签</span>
+            <button id="btnClearTagFilter" class="link">清空</button>
+          </div>
+          <div id="tagFilterList" class="menu-body" role="group" aria-labelledby="btnTagFilter"></div>
+        </div>
+      </div>
+
+      <div class="split"></div>
+
+      <div class="field">
+        <button id="btnUndo" class="btn" title="撤销最近一次操作">撤销</button>
+        <button id="btnRedo" class="btn" title="恢复撤销">恢复</button>
+      </div>
+
+      <div class="field">
+        <button id="btnExportJson" class="btn">导出 JSON</button>
+        <button id="btnExportCsv" class="btn">导出 CSV</button>
+        <input id="fileImport" class="sr-only" type="file" accept="application/json" />
+        <button id="btnImportJson" class="btn">导入 JSON</button>
+      </div>
+
+      <button id="btnTheme" class="btn icon" title="深浅色主题切换" aria-pressed="false">🌗</button>
+    </nav>
+  </header>
+
+  <main class="container">
+    <section class="list-area" aria-label="记录列表">
+      <ul id="recordList" class="cards" aria-live="polite"></ul>
+      <button id="btnLoadMore" class="btn block" hidden>加载更多</button>
+      <div id="emptyState" class="empty" hidden>暂无记录。点击“新建”开始记录你的今天吧！</div>
+    </section>
+
+    <!-- 右侧/弹窗编辑面板 -->
+    <aside id="editorPanel" class="panel" role="dialog" aria-modal="true" aria-labelledby="editorTitle" aria-hidden="true">
+      <div class="panel-header">
+        <h2 id="editorTitle">编辑记录</h2>
+        <button id="btnCloseEditor" class="btn icon" aria-label="关闭编辑面板">✕</button>
+      </div>
+
+      <form id="editForm" novalidate>
+        <input type="hidden" id="recId" />
+        <div class="form-row">
+          <label for="recDate">日期 <span class="req">*</span></label>
+          <input id="recDate" name="date" type="date" required />
+          <div class="err" id="errDate" role="alert"></div>
+        </div>
+
+        <div class="form-row">
+          <label for="recTitle">标题 <span class="req">*</span></label>
+          <input id="recTitle" name="title" type="text" placeholder="给今天起个标题" required minlength="1" maxlength="120" />
+          <div class="err" id="errTitle" role="alert"></div>
+        </div>
+
+        <div class="form-row">
+          <label for="recContent">内容</label>
+          <textarea id="recContent" name="content" rows="6" placeholder="写点什么…"></textarea>
+        </div>
+
+        <div class="form-row">
+          <label for="recMood">心情</label>
+          <select id="recMood" name="mood">
+            <option value="开心">开心</option>
+            <option value="一般" selected>一般</option>
+            <option value="低落">低落</option>
+            <option value="紧张">紧张</option>
+            <option value="疲惫">疲惫</option>
+          </select>
+        </div>
+
+        <div class="form-row">
+          <label for="tagInput">标签（回车添加）</label>
+          <div class="tags-input">
+            <input id="tagInput" type="text" placeholder="输入后回车添加；可多标签" />
+            <div id="tagChips" class="chips" aria-live="polite"></div>
+          </div>
+        </div>
+
+        <div class="form-row">
+          <label for="filePicker">附件（图片，≤ 1MB/张，可多选）</label>
+          <input id="filePicker" type="file" accept="image/*" multiple />
+          <div class="hint">仅用于本地预览与本地存储（Base64），不会上传到服务器。</div>
+          <div id="attachPreview" class="thumbs"></div>
+          <div class="err" id="errAttach" role="alert"></div>
+        </div>
+
+        <div class="form-footer">
+          <div class="meta">
+            <span id="storageHint" class="muted"></span>
+          </div>
+          <div class="actions">
+            <button id="btnSave" class="btn primary" title="保存 (S)">保存</button>
+            <button id="btnCancel" type="button" class="btn">取消</button>
+            <button id="btnDelete" type="button" class="btn danger" hidden>删除</button>
+          </div>
+        </div>
+      </form>
+    </aside>
+  </main>
+
+  <footer class="footer" aria-label="统计">
+    <div class="stats-grid">
+      <section>
+        <h3>按心情分布</h3>
+        <canvas id="moodCanvas" width="400" height="180" aria-label="心情统计图" role="img"></canvas>
+        <div id="moodText" class="muted small"></div>
+      </section>
+      <section>
+        <h3>按日期计数（最近30天）</h3>
+        <canvas id="dateCanvas" width="400" height="180" aria-label="日期统计图" role="img"></canvas>
+        <div id="dateText" class="muted small"></div>
+      </section>
+    </div>
+  </footer>
+
+  <template id="cardTpl">
+    <li class="card">
+      <div class="card-head">
+        <time class="card-date"></time>
+        <span class="badge mood"></span>
+      </div>
+      <h4 class="card-title"></h4>
+      <p class="card-content"></p>
+      <div class="card-tags"></div>
+      <div class="card-thumbs"></div>
+      <div class="card-actions">
+        <button class="btn small edit">编辑</button>
+        <button class="btn small danger del">删除</button>
+      </div>
+    </li>
+  </template>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
